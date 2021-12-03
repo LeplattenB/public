@@ -18,18 +18,38 @@ public class App {
         // --- Part 1 ---
 
         // 1. Print the exact answer to System.out as soon as it is available
+    	getExactAnswer()
+    		.thenAccept(System.out::println);
 
         // 2. Upload the exact answer as soon as it is available
+    	getExactAnswer()
+    		.thenApply(i -> Integer.toString(i))
+    		.thenCompose(App::upload);
+
 
         // 3. Either the exact answer or the approximate answer,
         //    whichever one is available first,
         //    prefixed with "Exact: " or "Approximate: " as necessary,
         //    and printed to System.out
+    	getExactAnswer()
+    		.thenApply(i -> "Exact: " + i)
+    		.acceptEither(
+    			getApproximateAnswer()
+    				.thenApply(i -> "Approximate: " + i),
+    			System.out::println
+    		);
+
 
         // 4. The answer with justification, printed to System.out;
         //    unless it throws an exception, in which case the normal answer, prefixed with "Exact: ",
         //    should be printed instead
         //    (hint: don't forget the documentation of CompletableFuture's interface CompletionStage...)
+    	/*getAnswerWithJustification()
+    		.exceptionallyCompose(e ->
+    			getExactAnswer()
+    				.thenApply(i -> "Exact: " + i))
+    		.thenAccept(System.out::println);
+    	*/
 
 
         // --- Part 2 ---
@@ -38,12 +58,37 @@ public class App {
         //    Cancellation isn't implemented yet; implement it in countSheep below.
         //    Then print the number of sheep.
         var flag = new AtomicBoolean();
+        
+        for (int n = 0; n < 1_000_000_000; n++) {
+        	if (/*cancelF*/flag.get()) {
+        		throw new CancellationException();
+        	}
+        	// ...
+        }
+
 
         // 6. A reliable version of "unreliableDownload" below, by filling in the "firstSuccess" method
         //    Try to do this without using join(), isDone(), or other sync methods!
+        countSheep(flag)
+        	.orTimeout(5, TimeUnit.SECONDS)
+        	.exceptionally(e -> {
+        		flag.set(true);
+        		return -1;
+        	})
+        	.thenApply(c -> "Sheep count: " + c)
+        	.thenAccept(System.out::println);
 
         // 7. There is an "oldAsyncSend" method below, wrap it into a CompletableFuture in the
         //    "newAsyncSend" method under it, and print its result.
+        var future = new CompletableFuture<String>();
+        String text = "";//???
+		oldAsyncSend(
+        	text,
+        	future::complete,
+        	future::completeExceptionally
+        );
+        //return future;
+
 
         // -- End --
 
@@ -141,13 +186,15 @@ public class App {
         }).start();
     }
 
-    static void printAnswers() {
-        getExactAnswer()
+    static CompletableFuture<Void> printAnswers() {
+    	//Consumer<String> out; //???
+        return CompletableFuture.allOf(
+        	getExactAnswer()
                 .thenApply(a -> "Exact: " + a)
-                .thenAccept(System.out::println);
-        getApproximateAnswer()
+                .thenAccept(System.out::println),
+            getApproximateAnswer()
                 .thenApply(a -> "Approximate: " + a)
-                .thenAccept(System.out::println);
+                .thenAccept(System.out::println));
     }
 
 
